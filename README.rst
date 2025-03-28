@@ -1,3 +1,10 @@
+This is a fork of AIT DSN for use in Morehead State University Space Science Center (MSU SSC) missions.
+
+The last commit in master before the fork is 46c5a670811a9514d4d01cb13a96c3e93eee1684
+
+Original README is below this line
+
+
 AMMOS Instrument Toolkit (AIT) Deep Space Network (DSN) Interface
 =================================================================
 
