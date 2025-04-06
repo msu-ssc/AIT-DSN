@@ -1,0 +1,8 @@
+entity_id: 1
+fault_handlers: {}
+issue_eof_recv: false
+issue_eof_sent: true
+issue_file_segment_recv: false
+issue_resumed: true
+issue_suspended: true
+issue_transaction_finished: false
