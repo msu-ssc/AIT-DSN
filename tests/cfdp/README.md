@@ -12,7 +12,7 @@
 ```bash
 # In project root directory:
 export AIT_ROOT="${PWD}"    # Or set this manually
-export AIT_CONFIG="${AIT_CONFIG}/tests/cfdp/config.yaml"
+export AIT_CONFIG="${AIT_ROOT}/tests/cfdp/config.yaml"
 export PYTHONPATH="${AIT_ROOT}:${PYTHONPATH}"
 ```
 
