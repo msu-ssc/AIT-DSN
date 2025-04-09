@@ -1,0 +1,43 @@
+# This is a barely modified version of
+# `ait/dsn/bin/ait_cfdp_start_receiver`
+
+import os
+import sys
+from pathlib import Path
+root_dir = Path(__file__).resolve().parent.parent.parent
+sys.path.insert(0, str(root_dir))
+
+os.environ['AIT_ROOT'] = str(root_dir)
+os.environ['AIT_CONFIG'] = str(root_dir / "tests/cfdp/config.yaml")
+
+print(root_dir)
+print(f"{os.environ['AIT_ROOT']=}")
+print(f"{os.environ['AIT_CONFIG']=}")
+
+import ait.dsn.cfdp
+import gevent
+import traceback
+
+import ait.core.log
+
+from common import parse_args
+
+if __name__ == '__main__':
+    args = parse_args()
+    from pprint import pprint
+    pprint(args.__dict__)
+    cfdp = ait.dsn.cfdp.CFDP(args.receiver_entity)
+    try:
+        receiver_addr = (args.receiver_host, args.receiver_port)
+        sender_addr = (args.sender_host, args.sender_port)
+        
+        cfdp.connect(receiver_addr, send_host=sender_addr)
+        while True:
+            # ait.core.log.info('Sleeping...')
+            gevent.sleep(1)
+    except KeyboardInterrupt:
+        print('Disconnecting...')
+    except Exception as e:
+        print(traceback.print_exc())
+    finally:
+        cfdp.disconnect()

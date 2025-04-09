@@ -59,7 +59,10 @@ def make_pdu_from_bytes(pdu_bytes):
     pdu_body = pdu_bytes[header.length:]
     if header.pdu_type == Header.FILE_DIRECTIVE_PDU:
         # make a file directive pdu by reading the directive code and making the appropriate object
-        directive_code = FileDirective(pdu_body[0])
+        try:
+            directive_code = FileDirective(pdu_body[0])
+        except Exception as e:
+            pass
         if directive_code == FileDirective.METADATA:
             md = Metadata.to_object(pdu_body)
             md.header = header
