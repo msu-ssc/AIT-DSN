@@ -24,9 +24,22 @@ import ait.core.log
 from common import parse_args
 
 if __name__ == '__main__':
+
     args = parse_args()
     from pprint import pprint
     pprint(args.__dict__)
+
+    from pathlib import Path
+    import shutil
+
+    incoming = Path("tests/cfdp/temp/datasink/incoming")
+    pdusink = Path("tests/cfdp/temp/datasink/pdusink")
+    tempfiles = Path("tests/cfdp/temp/datasink/tempfiles")
+
+    for delete_folder in [incoming, pdusink, tempfiles]:
+        if delete_folder.exists():
+            shutil.rmtree(delete_folder)
+    
 
     cfdp = ait.dsn.cfdp.CFDP(args.sender_entity)
     try:
@@ -36,8 +49,13 @@ if __name__ == '__main__':
 
         destination_id = args.receiver_entity
         source_file = args.sender_file
-        destination_file = args.receiver_file
-        cfdp.put(destination_id, source_file, destination_file, transmission_mode=TransmissionMode.NO_ACK)
+        destination_file: str = args.receiver_file
+                
+        for rep in range(args.reps):
+            this_destination_file = destination_file.split('.')[0] + f'.{str(rep).zfill(5)}' + '.' + destination_file.split('.')[1]
+            print(f"Sending {source_file} to {destination_id} as {this_destination_file}")
+            # destination_file = destination_file.split('.')[0] + f'.{str(rep).zfill(5)}' + '.' + destination_file.split('.')[1]
+            cfdp.put(destination_id, source_file, this_destination_file, transmission_mode=TransmissionMode.NO_ACK)
         while True:
             # ait.core.log.info('Sleeping...')
             gevent.sleep(1)

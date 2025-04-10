@@ -4,7 +4,7 @@ from pathlib import Path
 path = Path("tests/cfdp/temp/datasink/outgoing")
 path.mkdir(parents=True, exist_ok=True)
 
-for size in [0, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]:
+for size in [0, 8, 16, 32, 64, 128, 248, 256, 512, 1024, 2048, 4096, 8192, 16384, 32768, 65536]:
     # Create a test file with the specified size
     name = f"{size}".zfill(8) + ".txt"
     with open(path / name, 'wb') as f:

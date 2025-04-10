@@ -15,6 +15,8 @@
 import os
 import shutil
 
+import ait.core.log
+
 import ait.dsn.cfdp.pdu
 from ait.dsn.cfdp.events import Event
 from ait.dsn.cfdp.primitives import ConditionCode, IndicationType, DeliveryCode
@@ -131,6 +133,7 @@ class Receiver1(Machine):
                 # Messages to user, filestore requests, ...
 
                 # Set state to be awaiting EOF
+                ait.core.log.info("Receiver {0}: Received METADATA PDU event, changing state to S2".format(self.transaction.entity_id))
                 self.state = self.S2
 
             elif event == Event.RECEIVED_EOF_NO_ERROR_PDU:
@@ -187,6 +190,7 @@ class Receiver1(Machine):
                 # File data received before Metadata has been received
                 assert(pdu)
                 assert(type(pdu) == ait.dsn.cfdp.pdu.FileData)
+                ait.core.log.debug('MAYO: Received file data with offset {0} and length {1}'.format(pdu.segment_offset, len(pdu.data)))
 
                 if self.metadata.file_transfer:
                     # Store file data to temp file

@@ -27,6 +27,7 @@ if __name__ == '__main__':
     from pprint import pprint
     pprint(args.__dict__)
     cfdp = ait.dsn.cfdp.CFDP(args.receiver_entity)
+    ait.core.log.logger.setLevel("DEBUG")
     try:
         receiver_addr = (args.receiver_host, args.receiver_port)
         sender_addr = (args.sender_host, args.sender_port)

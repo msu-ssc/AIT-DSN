@@ -19,12 +19,16 @@ from ait.dsn.cfdp.primitives import TransmissionMode
 import ait.core
 
 
+# MAYO:
+# This function is WRONG in main
 def int_to_byte_list(value):
     value_binary_str = format(value,
                                        '>0{}b'.format(int((value.bit_length() / 8) + 1) * 8))
     value_byte_list = []
     for index in range(int(len(value_binary_str) / 8)):
-        value_byte_list.append(int(value_binary_str[index:index + 8], 2))
+        # The line below this comment is the one where the bug is in main.
+        # (It's missing the "8*" multipliers)
+        value_byte_list.append(int(value_binary_str[8*index:8*index + 8], 2))
     return value_byte_list
 
 class Header(object):
@@ -245,6 +249,35 @@ class Header(object):
         #   PDU Data Field Length (16)
         byte_2 = pdu_hdr[1]
         byte_3 = pdu_hdr[2]
+
+        # <BEGIN David Mayo comment block>
+        # 2025-04-09: I think the below left shift logic is wrong. Why is `byte_2` left shifted 4? That's not what the spec says.
+        # 
+        # The spec says to read these two bytes as a big-endian number. So, if using left shifts, that would be:
+        #   pdu_data_length = (byte_2 << 8) + byte_3
+        # 
+        # So If the bytes are 0x01 0x04 [which is what they are when sending a 256 byte file with a default 4 byte offset],
+        # we should get (1 << 8) + 4 = 256 + 4 = 260
+        # But we actually get (1 << 4) + 4 = 16 + 4 = 20
+        # Which throws off all the parsing of the PDU data field (i.e., the part with the actual file data)
+        #
+        # The CCSDS specs don't give any indcation why there's a "<< 4" here. All versions (1 through 5)
+        # of the blue books are identical (see section 5.1.3), and they just have a table which looks like this:
+        # 
+        #  Field                  | Length (bits) | Values | Comment
+        #  -----------------------|---------------|--------|------------
+        #  ...                    | ...           | ...    | ...
+        #  PDU Data field length  | 16            |        | In octets.
+        #  ...                    | ...           | ...    | ...
+        #
+        # So, I don't know why this left shift is here, and it messes everything up. But obviously, someone did it this way
+        # (contrary to the spec) for some reason, which I don't understand. So this is a Chesterton's fence situation.
+        #
+        # This logic has been in AIT since the very beginning, at least since 2018/BLISS version 0.1.0. See
+        # https://github.com/NASA-AMMOS/AIT-DSN/blob/847f4f316758b1302e50637787dc896fdcd23382/bliss/cfdp/pdu/header.py#L195
+        # 
+        # <END David Mayo comment block>
+
         # left shift first byte 4 to get right position of bits
         pdu_data_length = byte_2 << 4
         pdu_data_length += byte_3
