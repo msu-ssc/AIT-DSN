@@ -14,6 +14,8 @@
 
 import copy
 import os
+
+import ait.core.log
 from ait.dsn.cfdp.events import Event
 from ait.dsn.cfdp.pdu import Metadata, Header, FileData, EOF
 from ait.dsn.cfdp.primitives import Role, ConditionCode, IndicationType
@@ -172,6 +174,13 @@ class Sender1(Machine):
                                       .format(self.transaction.entity_id, self.metadata.source_path, outgoing_directory))
                         return self.fault_handler(ConditionCode.FILESTORE_REJECTION)
 
+                    # MAYO: Temp debugging thing
+                    with open("./tests/cfdp/temp/transfer_times.txt", "a") as file:
+                        import datetime
+                        start_time = datetime.datetime.now()
+                        ait.core.log.info(f"MAYO: Sending file {self.transaction.full_file_path} at {start_time}")
+                        file.write(f"START,{start_time.isoformat(timespec='milliseconds')},{self.transaction.full_file_path}\n")
+
                     # Check file structure
                     ait.core.log.info("Sender {0}: Checking file structure".format(self.transaction.entity_id))
                     if not check_file_structure(self.file, self.metadata.segmentation_control):
@@ -266,7 +275,7 @@ class Sender1(Machine):
                 if self.transaction.frozen or self.transaction.suspended:
                     return
 
-                ait.core.log.debug("Sender {0}: Received SEND FILE DIRECTIVE".format(self.transaction.entity_id))
+                ait.core.log.info("Sender {0}: Received SEND FILE DIRECTIVE".format(self.transaction.entity_id))
 
                 if self.is_md_outgoing is True:
                     self.kernel.send(self.metadata)

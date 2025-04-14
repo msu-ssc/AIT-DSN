@@ -278,9 +278,14 @@ class Header(object):
         # 
         # <END David Mayo comment block>
 
-        # left shift first byte 4 to get right position of bits
-        pdu_data_length = byte_2 << 4
-        pdu_data_length += byte_3
+
+        # MAYO CHANGE: Changing this out.
+        # # left shift first byte 4 to get right position of bits
+        # pdu_data_length = byte_2 << 4
+        # pdu_data_length += byte_3
+        pdu_data_length = int.from_bytes((byte_2, byte_3), byteorder='big')
+
+
 
         # --- BYTE 4 ---
         # Byte comprised of:

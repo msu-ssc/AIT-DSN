@@ -274,12 +274,21 @@ def read_pdus_from_filesys(instance):
             ait.core.log.warn(traceback.format_exc())
 
 
-def read_pdus_from_socket(instance):
+def read_pdus_from_socket(instance: CFDP):
     """ Read PDUs from a socket over UDP """
     while True:
         gevent.sleep(0)
         try:
-            all_bytes, addr = instance._rcvr_socket.recvfrom(4096)
+            # MAYO:
+            # This hard-coded 4096 does not account for:
+            #   1. the header length (usually 12 bytes)
+            #   2. the offset at the beginning of the FD in a file PDU (usually 4 bytes)
+            #   3. The fact that the 4096 is configurable in the MIB
+            # TODO: Account for all this.
+            # For now (2025-04-09), deal with this by making it the right size for the defaults,
+            # which is 4096 + 12 + 4 = 4112
+            all_bytes, addr = instance._rcvr_socket.recvfrom(4096 + 12 + 4)
+            # all_bytes, addr = instance._rcvr_socket.recvfrom(4096)
             if all_bytes:
                 # create PDUs from bytes received
                 all_bytes = [b for b in bytearray(all_bytes)]

@@ -1,0 +1,16 @@
+START,2025-04-11T11:32:46.882,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/outgoing/00000016.txt
+FINISH,2025-04-11T11:32:47.539,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/incoming/output.00000.txt
+START,2025-04-11T11:42:21.432,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/outgoing/00000256.txt
+FINISH,2025-04-11T11:42:22.189,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/incoming/output.00000.txt
+START,2025-04-11T11:42:42.604,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/outgoing/00004096.txt
+FINISH,2025-04-11T11:42:43.409,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/incoming/output.00000.txt
+START,2025-04-11T11:43:06.219,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/outgoing/00008192.txt
+FINISH,2025-04-11T11:43:07.198,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/incoming/output.00000.txt
+START,2025-04-11T11:45:55.799,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/outgoing/00065536.txt
+FINISH,2025-04-11T11:45:59.701,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/incoming/output.00000.txt
+START,2025-04-11T11:47:23.660,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/outgoing/00262144.txt
+FINISH,2025-04-11T11:47:37.524,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/incoming/output.00000.txt
+START,2025-04-11T11:49:17.332,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/outgoing/00524288.txt
+FINISH,2025-04-11T11:49:44.537,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/incoming/output.00000.txt
+START,2025-04-11T11:50:43.362,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/outgoing/16777216.txt
+FINISH,2025-04-11T12:04:55.293,/root/dev/AIT-DSN/tests/cfdp/temp/datasink/incoming/output.00000.txt

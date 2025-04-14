@@ -4,6 +4,9 @@
 import os
 import sys
 from pathlib import Path
+
+# import ait.dsn.cfdp.machines
+# import ait.dsn.cfdp.machines.machine
 root_dir = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(root_dir))
 
@@ -22,12 +25,13 @@ import ait.core.log
 
 from common import parse_args
 
+
 if __name__ == '__main__':
     args = parse_args()
     from pprint import pprint
     pprint(args.__dict__)
     cfdp = ait.dsn.cfdp.CFDP(args.receiver_entity)
-    ait.core.log.logger.setLevel("DEBUG")
+    # ait.core.log.logger.setLevel("DEBUG")
     try:
         receiver_addr = (args.receiver_host, args.receiver_port)
         sender_addr = (args.sender_host, args.sender_port)

@@ -44,6 +44,14 @@ class Receiver1(Machine):
         self.inactivity_timer = Timer()
         self.inactivity_timer.start(self.kernel.mib.inactivity_timeout(0))
 
+    # MAYO: new method, debug only at this point
+    def _handle_file_finished(self, file_path):
+        import datetime
+        finish_time = datetime.datetime.now()
+        ait.core.log.info(f"MAYO: File transfer finished: {file_path} at {finish_time}")
+        with open("./tests/cfdp/temp/transfer_times.txt", "a") as file:
+            file.write(f"FINISH,{finish_time.isoformat(timespec='milliseconds')},{file_path}\n")
+
     def update_state(self, event=None, pdu=None, request=None):
         """
         Evaluate a state change on received input
@@ -256,6 +264,7 @@ class Receiver1(Machine):
                     os.makedirs(destination_directory_path)
                 try:
                     shutil.copy(self.temp_path, self.file_path)
+                    self._handle_file_finished(self.file_path)
                 except IOError:
                     return self.fault_handler(ConditionCode.FILESTORE_REJECTION)
 
