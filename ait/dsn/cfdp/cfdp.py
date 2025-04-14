@@ -364,7 +364,7 @@ def receiving_handler(instance):
         except Exception as e:
             ait.core.log.warn("EXCEPTION: " + e.message)
             ait.core.log.warn(traceback.format_exc())
-        gevent.sleep(0.2)
+        gevent.sleep(0)
 
 
 def read_incoming_pdu(pdu):
@@ -406,7 +406,7 @@ def write_outgoing_pdu(pdu, pdu_filename=None, output_directory=None):
     write_to_file(pdu_file_path, bytearray(pdu_bytes))
 
 
-def send_to_socket_handler(instance):
+def send_to_socket_handler(instance: "CFDP"):
     """ Handler to take PDUs from the outgoing queue and send over socket. """
     while True:
         gevent.sleep(0)
@@ -421,7 +421,7 @@ def send_to_socket_handler(instance):
         except Exception as e:
             ait.core.log.warn('Sending handler exception: ' + e.message)
             ait.core.log.warn(traceback.format_exc())
-        gevent.sleep(0.2)
+        gevent.sleep(0.02)
 
 
 def send_to_filesys_handler(instance):
@@ -441,7 +441,7 @@ def send_to_filesys_handler(instance):
         except Exception as e:
             ait.core.log.warn('Sending handler exception: ' + e.message)
             ait.core.log.warn(traceback.format_exc())
-        gevent.sleep(0.2)
+        gevent.sleep(0)
 
 
 def transaction_handler(instance):
@@ -468,4 +468,4 @@ def transaction_handler(instance):
         except Exception as e:
             ait.core.log.warn("EXCEPTION: " + e.message)
             ait.core.log.warn(traceback.format_exc())
-        gevent.sleep(0.2)
+        gevent.sleep(0)

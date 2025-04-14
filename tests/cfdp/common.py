@@ -13,4 +13,5 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument('--sender-file', type=str, required=False, default="00001024.txt", help='Source file to send (relative to datasink/outgoing)')
     parser.add_argument('--receiver-file', type=str, required=False, default="output.txt", help='Destination file path (relative to datasink/incoming)')
     parser.add_argument('--reps', type=int, required=False, default=1, help='Destination file path (relative to datasink/incoming)')
+    parser.add_argument('--profile', action='store_true', required=False, help='Enable profiling for the CFDP Sender')
     return parser.parse_args(args)
