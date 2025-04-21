@@ -1,0 +1,17 @@
+default:
+    dsn:
+        cfdp:
+            mib:
+                path: ./datasink/mib
+            datasink:
+                outgoing:
+                    path: ./datasink/outgoing
+                incoming:
+                    path: ./datasink/incoming
+                tempfiles:
+                    path: ./datasink/tempfiles
+                pdusink:
+                    path: ./datasink/pdusink
+            max_file_name_length: 64
+            max_entity_id_length: 2
+            max_transaction_id_length: 4
