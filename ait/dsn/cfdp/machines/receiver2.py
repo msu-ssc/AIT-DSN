@@ -12,10 +12,13 @@
 # or other export authority as may be required before exporting such
 # information to foreign countries or providing access to foreign persons.
 
+from __future__ import annotations
+
 import copy
 import shutil
 import os
 import gevent.queue
+from typing import TYPE_CHECKING
 
 from ait.dsn.cfdp.events import Event
 from ait.dsn.cfdp.pdu import Metadata, NAK, ACK, Finished, Header
@@ -23,9 +26,13 @@ from ait.dsn.cfdp.primitives import Role, ConditionCode, IndicationType, Deliver
 from ait.dsn.cfdp.util import write_to_file, calc_checksum
 from ait.dsn.cfdp.timer import Timer
 from .receiver1 import Receiver1
+from ait.dsn.cfdp.util import string_to_bytes
 
 import ait.core
 import ait.core.log
+
+if TYPE_CHECKING:
+    import ait.dsn.cfdp.pdu
 
 class Receiver2(Receiver1):
 
@@ -151,7 +158,7 @@ class Receiver2(Receiver1):
     def get_nak_list_from_received(self):
         # Sort the list by offset
         received_list = []
-        for offset, length in self.received_map.iteritems():
+        for offset, length in self.received_map.items():
             received_list.append({'offset': offset, 'length': length})
         received_list = sorted(received_list, key=lambda x: x.get('offset'))
 
@@ -483,7 +490,8 @@ class Receiver2(Receiver1):
                 # Seek offset to write in file if provided
                 if pdu.segment_offset is not None:
                     self.temp_file.seek(pdu.segment_offset)
-                self.temp_file.write(pdu.data)
+                
+                self.temp_file.write(bytearray(pdu.data, encoding="utf-8"))
                 # Issue file segment received
                 if self.kernel.mib.issue_file_segment_recv:
                     self.indication_handler(IndicationType.FILE_SEGMENT_RECV_INDICATION,
