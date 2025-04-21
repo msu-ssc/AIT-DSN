@@ -22,7 +22,7 @@ import traceback
 from ait.dsn.cfdp.primitives import TransmissionMode
 import ait.core.log
 
-from common import parse_args
+import common
 
 
 def main(args):
@@ -34,6 +34,7 @@ def main(args):
     import shutil
 
     incoming = Path("tests/cfdp/temp/datasink/incoming")
+    outgoing = Path("tests/cfdp/temp/datasink/outgoing")
     pdusink = Path("tests/cfdp/temp/datasink/pdusink")
     tempfiles = Path("tests/cfdp/temp/datasink/tempfiles")
 
@@ -42,14 +43,18 @@ def main(args):
             shutil.rmtree(delete_folder)
 
     cfdp = ait.dsn.cfdp.CFDP(args.sender_entity)
+
+    outgoing_file = common.create_file(size=args.file_size, path=outgoing / f"{args.file_size:_}.txt", fill=args.file_fill.encode(encoding="ascii"))
     try:
         sender_addr = (args.sender_host, args.sender_port)
         receiver_addr = (args.receiver_host, args.receiver_port)
         cfdp.connect(sender_addr, send_host=receiver_addr)
 
         destination_id = args.receiver_entity
-        source_file = args.sender_file
-        destination_file: str = args.receiver_file
+        # source_file = args.sender_file
+        source_file = outgoing_file.name
+        # destination_file: str = args.receiver_file
+        destination_file: str = outgoing_file.name
 
         for rep in range(args.reps):
             this_destination_file = destination_file.split(".")[0] + f".{str(rep).zfill(5)}" + "." + destination_file.split(".")[1]
@@ -68,7 +73,7 @@ def main(args):
 
 
 if __name__ == "__main__":
-    args = parse_args()
+    args = common.parse_args()
     if args.profile:
         from pstats import Stats
         from cProfile import Profile
