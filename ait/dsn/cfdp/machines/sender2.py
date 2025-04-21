@@ -14,6 +14,7 @@
 
 import gevent.queue
 
+import ait.dsn.cfdp.pdu
 from ait.dsn.cfdp.events import Event
 from ait.dsn.cfdp.primitives import Role, ConditionCode, IndicationType
 from ait.dsn.cfdp.timer import Timer

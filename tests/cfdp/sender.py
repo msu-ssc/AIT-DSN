@@ -52,11 +52,12 @@ def main(args):
         # destination_file: str = args.receiver_file
         destination_file: str = outgoing_file.name
 
+        transmission_mode = TransmissionMode.ACK if int(args.cfdp_class) == 2 else TransmissionMode.NO_ACK
         for rep in range(args.reps):
             this_destination_file = destination_file.split(".")[0] + f".{str(rep).zfill(5)}" + "." + destination_file.split(".")[1]
             print(f"Sending {source_file} to {destination_id} as {this_destination_file}")
             # destination_file = destination_file.split('.')[0] + f'.{str(rep).zfill(5)}' + '.' + destination_file.split('.')[1]
-            cfdp.put(destination_id, source_file, this_destination_file, transmission_mode=TransmissionMode.NO_ACK)
+            cfdp.put(destination_id, source_file, this_destination_file, transmission_mode=transmission_mode)
         while True:
             # ait.core.log.info('Sleeping...')
             gevent.sleep(1)

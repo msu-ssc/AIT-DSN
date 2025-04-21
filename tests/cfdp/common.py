@@ -15,7 +15,7 @@ def create_file(
 ) -> Path:
     if size % 8 != 0:
         raise ValueError("Size must be a multiple of 8")
-    
+
     fill = fill or b"CFDP!!!\n"
     if size % len(fill) != 0:
         raise ValueError(f"Size must be a multiple of fill length. Fill length is {len(fill)}, size is {size}.")
@@ -28,7 +28,7 @@ def create_file(
     with open(path, "wb") as f:
         for _ in range(size // len(fill)):
             f.write(fill)
-    return path    
+    return path
 
 
 def parse_args(args: list[str] | None = None) -> argparse.Namespace:
@@ -46,6 +46,8 @@ def parse_args(args: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--file-size", type=int, required=False, default=64, help="Size of the file (in byte) to create and send")
     parser.add_argument("--file-fill", type=str, required=False, default="CFDP!!!\n", help="ASCII text to be sent")
     parser.add_argument("--profile", action="store_true", required=False, help="Enable profiling for the CFDP Sender")
+    parser.add_argument("--cfdp-class", type=int, required=False, default=1, help="CFDP class to use. 1=NO_ACK, 2=ACK")
+
     return parser.parse_args(args)
 
 if __name__ == "__main__":
