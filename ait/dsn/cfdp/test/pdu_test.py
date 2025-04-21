@@ -19,11 +19,17 @@ import unittest
 import ait.core
 from ait.dsn.cfdp.cfdp import read_incoming_pdu
 from ait.dsn.cfdp.cfdp import write_outgoing_pdu
+from ait.dsn.cfdp.pdu import ACK
 from ait.dsn.cfdp.pdu import EOF
 from ait.dsn.cfdp.pdu import FileData
+from ait.dsn.cfdp.pdu import Finished
 from ait.dsn.cfdp.pdu import Header
-from ait.dsn.cfdp.pdu import Metadata, ACK, NAK, Finished
-from ait.dsn.cfdp.primitives import ConditionCode, TransactionStatus, DirectiveCode, FinishedPduFileStatus
+from ait.dsn.cfdp.pdu import Metadata
+from ait.dsn.cfdp.pdu import NAK
+from ait.dsn.cfdp.primitives import ConditionCode
+from ait.dsn.cfdp.primitives import DirectiveCode
+from ait.dsn.cfdp.primitives import FinishedPduFileStatus
+from ait.dsn.cfdp.primitives import TransactionStatus
 
 
 TEST_DIRECTORY = os.path.join(os.path.dirname(__file__), ".pdusink")

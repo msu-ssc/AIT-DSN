@@ -17,9 +17,9 @@ from .md import Metadata
 from .eof import EOF
 from .filedata import FileData
 from .header import Header
-from ack import ACK
-from nak import NAK
-from finished import Finished
+from .ack import ACK
+from .nak import NAK
+from .finished import Finished
 from ait.dsn.cfdp.primitives import FileDirective
 import ait.core
 import ait.core.log

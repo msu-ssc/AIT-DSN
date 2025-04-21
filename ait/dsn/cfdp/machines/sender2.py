@@ -17,7 +17,7 @@ import gevent.queue
 from ait.dsn.cfdp.events import Event
 from ait.dsn.cfdp.primitives import Role, ConditionCode, IndicationType
 from ait.dsn.cfdp.timer import Timer
-from sender1 import Sender1
+from .sender1 import Sender1
 
 import ait.core
 import ait.core.log

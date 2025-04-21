@@ -1,5 +1,5 @@
 from enum import Enum
-from pdu import PDU
+from .pdu import PDU
 from ait.dsn.cfdp.primitives import FileDirective, ConditionCode, TransactionStatus, DirectiveCode
 
 class ACK(PDU):
