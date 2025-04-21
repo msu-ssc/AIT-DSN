@@ -12,11 +12,11 @@
 # or other export authority as may be required before exporting such
 # information to foreign countries or providing access to foreign persons.
 
-from ack import ACK
+from .ack import ACK
 from .md import Metadata
 from .eof import EOF
 from .filedata import FileData
 from .header import Header
-from nak import NAK
-from finished import Finished
+from .nak import NAK
+from .finished import Finished
 from .util import make_pdu_from_bytes, split_multiple_pdu_byte_array

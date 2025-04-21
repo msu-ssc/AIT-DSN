@@ -16,8 +16,8 @@ import os
 import socket
 import time
 import traceback
-import SimpleHTTPServer
-import SocketServer
+# import SimpleHTTPServer
+# import SocketServer
 
 import gevent
 import gevent.queue
@@ -69,11 +69,9 @@ class CFDP(object):
 
         # Spawn handlers for incoming and outgoing data
         self._receiving_handler = gevent.spawn(kwargs.get('receiving_handler', receiving_handler), self)
-        self._sending_handler = gevent.spawn(kwargs.get('sending_handler', sending_handler), self)
+        # self._sending_handler = gevent.spawn(kwargs.get('sending_handler', sending_handler), self)
         # cycle through transactions to progress state machines
         self._transaction_handler = gevent.spawn(kwargs.get('transaction_handler', transaction_handler), self)
-
-        self._server_handler = kwargs.get('server_handler', SimpleHTTPServer.SimpleHTTPRequestHandler)
 
         # set entity id in MIB
         self.mib.load()

@@ -22,7 +22,7 @@ from ait.dsn.cfdp.pdu import Metadata, NAK, ACK, Finished, Header
 from ait.dsn.cfdp.primitives import Role, ConditionCode, IndicationType, DeliveryCode, FileDirective, TransactionStatus, FinishedPduFileStatus
 from ait.dsn.cfdp.util import write_to_file, calc_checksum
 from ait.dsn.cfdp.timer import Timer
-from receiver1 import Receiver1
+from .receiver1 import Receiver1
 
 import ait.core
 import ait.core.log
