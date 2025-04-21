@@ -310,7 +310,7 @@ def read_pdus_from_socket(instance):
             ait.core.log.warn(traceback.format_exc())
 
 
-def receiving_handler(instance):
+def receiving_handler(instance: CFDP):
     """Receives incoming PDUs on `incoming_pdu_queue` and routes them to the intended state machine instance
     """
 
@@ -318,17 +318,18 @@ def receiving_handler(instance):
         gevent.sleep(0)
         try:
             pdu_bytes = instance.incoming_pdu_queue.get(block=False)
-            pdu = read_incoming_pdu(pdu_bytes)
-            ait.core.log.debug('Incoming PDU Type: ' + str(pdu.header.pdu_type))
+            pdu: PDU = read_incoming_pdu(pdu_bytes)
+            header: Header = pdu.header
+            ait.core.log.debug('Incoming PDU Type: ' + str(header.pdu_type))
 
-            if pdu.header.destination_entity_id != instance.mib.local_entity_id:
-                ait.core.log.debug('Skipping PDU with mismatched destination entity id {0}'.format(pdu.header.destination_entity_id))
+            if header.destination_entity_id != instance.mib.local_entity_id:
+                ait.core.log.debug('Skipping PDU with mismatched destination entity id {0}'.format(header.destination_entity_id))
                 continue
 
-            transaction_num = pdu.header.transaction_id
+            transaction_num = header.transaction_id
             machine = instance._machines[transaction_num] if transaction_num in instance._machines else None
 
-            if pdu.header.pdu_type == Header.FILE_DATA_PDU:
+            if header.pdu_type == Header.FILE_DATA_PDU:
                 # File data PDU received
                 # If its file data we'll concat to file
                 ait.core.log.debug('Received File Data Pdu')
@@ -340,12 +341,12 @@ def receiving_handler(instance):
                     machine.inactivity_timer.restart()
                     machine.update_state(Event.E11_RECEIVED_FILEDATA_PDU, pdu=pdu)
 
-            elif pdu.header.pdu_type == Header.FILE_DIRECTIVE_PDU:
+            elif header.pdu_type == Header.FILE_DIRECTIVE_PDU:
                 # File directive PDU received. Route the different types of file directives w/ their appropriate events
                 ait.core.log.debug('Received File Directive Pdu: ' + str(pdu.file_directive_code))
                 if pdu.file_directive_code == FileDirective.METADATA:
                     # If machine doesn't exist, create a machine for this transaction
-                    transmission_mode = pdu.header.transmission_mode
+                    transmission_mode = header.transmission_mode
                     if machine is None:
                         if transmission_mode == TransmissionMode.ACK:
                             ait.core.log.info(
@@ -459,7 +460,7 @@ def send_to_socket_handler(instance: CFDP):
             instance.pdu_counter += 1
             ait.core.log.debug('Got PDU from outgoing queue: ' + str(pdu))
             instance._sender_socket.sendto(bytearray(pdu.to_bytes()), instance.send_host)
-            ait.core.log.info('PDU transmitted: ' + str(pdu))
+            ait.core.log.info('PDU transmitted: ' + str(pdu) + ' to ' + str(instance.send_host))
         except gevent.queue.Empty:
             pass
         except Exception as e:
@@ -480,7 +481,7 @@ def send_to_filesys_handler(instance):
             instance.pdu_counter += 1
             ait.core.log.debug('Got PDU from outgoing queue: ' + str(pdu))
             write_outgoing_pdu(pdu, pdu_filename=pdu_filename, output_directory=instance._data_paths['pdusink'])
-            ait.core.log.debug('PDU transmitted: ' + str(pdu))
+            ait.core.log.debug('PDU transmitted: ' + str(pdu) + ' to ' + str(instance._data_paths['pdusink']) + '/' + str(pdu_filename))
         except gevent.queue.Empty:
             pass
         except Exception as e:

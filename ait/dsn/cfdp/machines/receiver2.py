@@ -34,6 +34,17 @@ import ait.core.log
 if TYPE_CHECKING:
     import ait.dsn.cfdp.pdu
 
+def swapped_header(header: Header) -> Header:
+    """
+    Swaps the header of a PDU to be sent to the other entity.
+    :param header: Header object to swap
+    :return: Swapped header
+    """
+    swapped_header = copy.copy(header)
+    swapped_header.source_entity_id = header.destination_entity_id
+    swapped_header.destination_entity_id = header.source_entity_id
+    return swapped_header
+
 class Receiver2(Receiver1):
 
     S1 = "WAIT_FOR_EOF"
@@ -149,7 +160,8 @@ class Receiver2(Receiver1):
         else:
             end_scope = self.transaction.recv_file_size
 
-        header = copy.copy(self.header)
+        # header = copy.copy(self.header)
+        header = swapped_header(self.header)
         header.pdu_type = Header.FILE_DIRECTIVE_PDU
         header.pdu_data_field_length = 9 + 8 * len(self.nak_list)  # NAK pdu is 9 octects + n * 64 bits (8 octets) for segment requests
         nak = NAK(header=header, start_of_scope=start_scope, end_of_scope=end_scope, segment_requests=self.nak_list)
@@ -195,7 +207,8 @@ class Receiver2(Receiver1):
         :param condition_code: ConditionCode of the ACKed PDU
         :return:
         """
-        header = copy.copy(self.header)
+        # header = copy.copy(self.header)
+        header = swapped_header(self.header)
         header.pdu_type = Header.FILE_DIRECTIVE_PDU
         header.pdu_data_field_length = 3  # ACK pdu is 3 octets long
         directive_subtype_code = 0b0000
@@ -207,7 +220,8 @@ class Receiver2(Receiver1):
         self.ack_list.put(ack)
 
     def make_finished_pdu(self, condition_code, delivery_code, file_status):
-        header: Header = copy.copy(self.header)
+        header = swapped_header(self.header)
+        
         header.pdu_type = Header.FILE_DIRECTIVE_PDU
         header.pdu_data_field_length = 2 # finished pdu is 2 octets long
         finished = Finished(condition_code=condition_code,
