@@ -16,13 +16,15 @@ import os
 import socket
 import time
 import traceback
+import SimpleHTTPServer
+import SocketServer
 
 import gevent
 import gevent.queue
 import gevent.socket
 
 from ait.dsn.cfdp.events import Event
-from ait.dsn.cfdp.machines import Receiver1, Sender1
+from ait.dsn.cfdp.machines import Receiver1, Sender1, Sender2, Receiver2
 from ait.dsn.cfdp.mib import MIB
 from ait.dsn.cfdp.pdu import make_pdu_from_bytes, split_multiple_pdu_byte_array, Header
 from ait.dsn.cfdp.primitives import RequestType, TransmissionMode, FileDirective, Role, ConditionCode
@@ -66,9 +68,12 @@ class CFDP(object):
             self._sending_handler = gevent.spawn(send_to_socket_handler, self)
 
         # Spawn handlers for incoming and outgoing data
-        self._receiving_handler = gevent.spawn(receiving_handler, self)
+        self._receiving_handler = gevent.spawn(kwargs.get('receiving_handler', receiving_handler), self)
+        self._sending_handler = gevent.spawn(kwargs.get('sending_handler', sending_handler), self)
         # cycle through transactions to progress state machines
-        self._transaction_handler = gevent.spawn(transaction_handler, self)
+        self._transaction_handler = gevent.spawn(kwargs.get('transaction_handler', transaction_handler), self)
+
+        self._server_handler = kwargs.get('server_handler', SimpleHTTPServer.SimpleHTTPRequestHandler)
 
         # set entity id in MIB
         self.mib.load()
@@ -131,6 +136,8 @@ class CFDP(object):
 
         self._receiving_handler.kill()
         self._sending_handler.kill()
+        self._transaction_handler.kill()
+        self._read_pdu_handler.kill()
         self.mib.dump()
 
     def _increment_tx_counter(self):
@@ -175,10 +182,6 @@ class CFDP(object):
         if transmission_mode is None:
             transmission_mode = self.mib.transmission_mode(destination_id)
 
-        if transmission_mode == TransmissionMode.ACK:
-            # TODO raise invalid transmission mode since we don't support ACK right now
-            pass
-
         # Create a `Request` which contains all the parameters for a Put.request
         # This is passed to the machine to progress the state
         request = create_request_from_type(RequestType.PUT_REQUEST,
@@ -186,13 +189,15 @@ class CFDP(object):
                                            source_path=source_path,
                                            destination_path=destination_path,
                                            transmission_mode=transmission_mode)
-        # if transmission_mode == TransmissionMode.ACK:
-        #     machine = Sender2(self, transaction_num, request=request)
-        # else:
-        machine = Sender1(self, transaction_num)
+        if transmission_mode == TransmissionMode.ACK:
+            ait.core.log.info('Starting Class 2 Sender with transaction number {}'.format(transaction_num))
+            machine = Sender2(self, transaction_num)
+        else:
+            ait.core.log.info('Starting Class 1 Sender with transaction number {}'.format(transaction_num))
+            machine = Sender1(self, transaction_num)
         # Send the Put.request `Request` to the newly created machine
         # This is where the rest of the Put request procedures are done
-        machine.update_state(event=Event.RECEIVED_PUT_REQUEST, request=request)
+        machine.update_state(event=Event.E30_RECEIVED_PUT_REQUEST, request=request)
         # Add transaction to list, indexed by Tx #
         self._machines[transaction_num] = machine
 
@@ -218,7 +223,7 @@ class CFDP(object):
         if machine is None:
             raise InvalidTransaction(transaction_id)
         else:
-            machine.update_state(event=Event.RECEIVED_REPORT_REQUEST, request=request)
+            machine.update_state(event=Event.E34_RECEIVED_REPORT_REQUEST, request=request)
 
     def cancel(self, transaction_id):
         """Cancel.request -- user request to cancel transaction"""
@@ -227,7 +232,7 @@ class CFDP(object):
         if machine is None:
             raise InvalidTransaction(transaction_id)
         else:
-            machine.update_state(event=Event.RECEIVED_CANCEL_REQUEST, request=request)
+            machine.update_state(event=Event.E33_RECEIVED_CANCEL_REQUEST, request=request)
 
     def suspend(self, transaction_id):
         """Suspend.request -- user request to suspend transaction"""
@@ -236,7 +241,7 @@ class CFDP(object):
         if machine is None:
             raise InvalidTransaction(transaction_id)
         else:
-            machine.update_state(event=Event.RECEIVED_SUSPEND_REQUEST, request=request)
+            machine.update_state(event=Event.E31_RECEIVED_SUSPEND_REQUEST, request=request)
 
     def resume(self, transaction_id):
         """Resume.request -- user request to resume transaction"""
@@ -245,7 +250,7 @@ class CFDP(object):
         if machine is None:
             raise InvalidTransaction(transaction_id)
         else:
-            machine.update_state(event=Event.RECEIVED_RESUME_REQUEST, request=request)
+            machine.update_state(event=Event.E32_RECEIVED_RESUME_REQUEST, request=request)
 
 
 def read_pdus_from_filesys(instance):
@@ -318,6 +323,7 @@ def receiving_handler(instance):
             machine = instance._machines[transaction_num] if transaction_num in instance._machines else None
 
             if pdu.header.pdu_type == Header.FILE_DATA_PDU:
+                # File data PDU received
                 # If its file data we'll concat to file
                 ait.core.log.debug('Received File Data Pdu')
                 if machine is None:
@@ -326,30 +332,71 @@ def receiving_handler(instance):
                 else:
                     # Restart inactivity timer here when PDU is being given to a machine
                     machine.inactivity_timer.restart()
-                    machine.update_state(Event.RECEIVED_FILEDATA_PDU, pdu=pdu)
+                    machine.update_state(Event.E11_RECEIVED_FILEDATA_PDU, pdu=pdu)
+
             elif pdu.header.pdu_type == Header.FILE_DIRECTIVE_PDU:
+                # File directive PDU received. Route the different types of file directives w/ their appropriate events
                 ait.core.log.debug('Received File Directive Pdu: ' + str(pdu.file_directive_code))
                 if pdu.file_directive_code == FileDirective.METADATA:
                     # If machine doesn't exist, create a machine for this transaction
                     transmission_mode = pdu.header.transmission_mode
                     if machine is None:
-                        # if transmission_mode == TransmissionMode.NO_ACK:
-                        machine = Receiver1(instance, transaction_num)
+                        if transmission_mode == TransmissionMode.ACK:
+                            ait.core.log.info(
+                                'Starting Class 2 Receiver with transaction number {}'.format(transaction_num))
+                            machine = Receiver2(instance, transaction_num)
+                        else:
+                            ait.core.log.info(
+                                'Starting Class 1 Receiver with transaction number {}'.format(transaction_num))
+                            machine = Receiver1(instance, transaction_num)
                         instance._machines[transaction_num] = machine
 
-                    machine.update_state(Event.RECEIVED_METADATA_PDU, pdu=pdu)
+                    machine.update_state(Event.E10_RECEIVED_METADATA_PDU, pdu=pdu)
+
                 elif pdu.file_directive_code == FileDirective.EOF:
                     if machine is None:
                         ait.core.log.info('Ignoring EOF for transaction that doesn\'t exist: {}'
                                           .format(transaction_num))
                     else:
                         if pdu.condition_code == ConditionCode.CANCEL_REQUEST_RECEIVED:
-                            machine.update_state(Event.RECEIVED_EOF_CANCEL_PDU, pdu=pdu)
+                            machine.update_state(Event.E13_RECEIVED_EOF_CANCEL_PDU, pdu=pdu)
                         elif pdu.condition_code == ConditionCode.NO_ERROR:
                             ait.core.log.debug('Received EOF with checksum: {}'.format(pdu.file_checksum))
-                            machine.update_state(Event.RECEIVED_EOF_NO_ERROR_PDU, pdu=pdu)
+                            machine.update_state(Event.E12_RECEIVED_EOF_NO_ERROR_PDU, pdu=pdu)
                         else:
-                            ait.core.log.warn('Received EOF with strange condition code: {}'.format(pdu.condition_code))
+                            ait.core.log.warn('Received EOF with strang condition code: {}'.format(pdu.condition_code))
+
+                elif pdu.file_directive_code == FileDirective.NAK:
+                    if machine is None:
+                        ait.core.log.info('Ignoring NAK for transaction that doesn\'t exist: {}'
+                                      .format(transaction_num))
+                    else:
+                        machine.update_state(Event.E15_RECEIVED_NAK_PDU, pdu=pdu)
+
+                elif pdu.file_directive_code == FileDirective.ACK:
+                    if machine is None:
+                        ait.core.log.info('Ignoring ACK for transaction that doesn\'t exist: {}'
+                                      .format(transaction_num))
+                    elif pdu.directive_code == FileDirective.FINISHED:
+                        if pdu.condition_code == ConditionCode.NO_ERROR:
+                            machine.update_state(Event.E18_RECEIVED_ACK_FIN_NO_ERROR_PDU, pdu=pdu)
+                        elif pdu.condition_code == ConditionCode.CANCEL_REQUEST_RECEIVED:
+                            machine.update_state(Event.E18_RECEIVED_ACK_FIN_CANCEL_PDU, pdu=pdu)
+                    elif pdu.directive_code == FileDirective.EOF:
+                        if pdu.condition_code == ConditionCode.NO_ERROR:
+                            machine.update_state(Event.E14_RECEIVED_ACK_EOF_NO_ERROR_PDU, pdu=pdu)
+                        elif pdu.condition_code == ConditionCode.CANCEL_REQUEST_RECEIVED:
+                            machine.update_state(Event.E14_RECEIVED_ACK_EOF_CANCEL_PDU, pdu=pdu)
+
+                elif pdu.file_directive_code == FileDirective.FINISHED:
+                    if machine is None:
+                        ait.core.log.info('Ignoring Finished for transaction that doesn\'t exist: {}'
+                                      .format(transaction_num))
+                    if pdu.condition_code == ConditionCode.NO_ERROR:
+                        machine.update_state(Event.E16_RECEIVED_FINISHED_NO_ERROR_PDU, pdu=pdu)
+                    elif pdu.condition_code == ConditionCode.CANCEL_REQUEST_RECEIVED:
+                        machine.update_state(Event.E17_RECEIVED_FINISHED_CANCEL_PDU, pdu=pdu)
+
         except gevent.queue.Empty:
             pass
         except Exception as e:
@@ -422,6 +469,7 @@ def send_to_filesys_handler(instance):
         gevent.sleep(0)
         try:
             pdu = instance.outgoing_pdu_queue.get(block=False)
+            ait.core.log.info('Got PDU from outgoing queue: ' + str(pdu))
             pdu_filename = 'entity{0}_tx{1}_{2}.pdu'.format(pdu.header.destination_entity_id, pdu.header.transaction_id, instance.pdu_counter)
             instance.pdu_counter += 1
             ait.core.log.debug('Got PDU from outgoing queue: ' + str(pdu))
@@ -447,15 +495,23 @@ def transaction_handler(instance):
                 if hasattr(machine, 'inactivity_timer') and machine.inactivity_timer is not None \
                         and machine.inactivity_timer.expired():
                     machine.inactivity_timer.cancel()
-                    machine.update_state(Event.INACTIVITY_TIMER_EXPIRED)
-                elif machine.role != Role.CLASS_1_RECEIVER:
+                    machine.update_state(Event.E27_INACTIVITY_TIMER_EXPIRED)
+                if hasattr(machine, 'nak_timer') and machine.nak_timer is not None \
+                        and machine.nak_timer.expired():
+                    machine.nak_timer.cancel()
+                    machine.update_state(Event.E26_NAK_TIMER_EXPIRED)
+                if hasattr(machine, 'ack_timer') and machine.ack_timer is not None \
+                        and machine.ack_timer.expired():
+                    machine.ack_timer.cancel()
+                    machine.update_state(Event.E25_ACK_TIMER_EXPIRED)
+                if machine.role != Role.CLASS_1_RECEIVER:
                     # Let 1 file directive go per machine. R1 doesn't output PDUs
-                    machine.update_state(Event.SEND_FILE_DIRECTIVE)
+                    machine.update_state(Event.E0_SEND_FILE_DIRECTIVE)
 
             # Loop again to send file data
             for trans_num, machine in instance._machines.items():
-                if machine.role == Role.CLASS_1_SENDER:
-                    machine.update_state(Event.SEND_FILE_DATA)
+                if machine.role == Role.CLASS_1_SENDER or machine.role == Role.CLASS_2_SENDER:
+                    machine.update_state(Event.E1_SEND_FILE_DATA)
         except Exception as e:
             ait.core.log.warn("EXCEPTION: " + e.message)
             ait.core.log.warn(traceback.format_exc())

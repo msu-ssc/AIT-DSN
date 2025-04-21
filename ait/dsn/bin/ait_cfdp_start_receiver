@@ -19,6 +19,7 @@ import gevent
 import traceback
 
 import ait.core.log
+import ait.core.log
 
 
 if __name__ == '__main__':
@@ -29,6 +30,7 @@ if __name__ == '__main__':
         # Set the address of the counterpart
         # cfdp.mib.set_remote('1', 'ut_address', ('127.0.0.1', 8001))
         while True:
+            # ait.core.log.info('Sleeping...')
             # ait.core.log.info('Sleeping...')
             gevent.sleep(1)
     except KeyboardInterrupt:
