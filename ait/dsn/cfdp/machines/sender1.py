@@ -29,8 +29,10 @@ class Sender1(Machine):
     Class 1 Receiver state machine
     """
 
+    S1 = "SEND_METADATA"
+    S2 = "SEND_FILEDATA"
+
     role = Role.CLASS_1_SENDER
-    # State 1, waiting to send metadata on Put request
 
     def make_header_from_request(self, request):
         self.header = Header()
@@ -97,12 +99,21 @@ class Sender1(Machine):
         )
         return self.eof
 
-    def make_fd_pdu(self):
+    def make_fd_pdu(self, offset=None, length=None):
+        if self.file is None:
+            # TODO error for if file is not open
+            return self.fault_handler(ConditionCode.FILESTORE_REJECTION)
+
         file_chunk_size = self.kernel.mib.maximum_file_segment_length(self.transaction.entity_id)
-        offset = 0
-        data_chunk = None
-        if self.file is not None:
+        ait.core.log.debug("Sender {0}: Offset, length {1} {2}"
+                          .format(self.transaction.entity_id, offset, length))
+        if offset is None:
             offset = self.file.tell()
+        else:
+            offset = self.file.seek(offset)
+        if length is not None:
+            data_chunk = self.file.read(length)
+        else:
             data_chunk = self.file.read(file_chunk_size)
         if not data_chunk:
             # FIXME to be more accurate of an error
@@ -125,6 +136,66 @@ class Sender1(Machine):
             data=data_chunk)
         return fd
 
+    def enter_s2_state(self, outgoing_directory):
+        """S2 : Send file once"""
+        # Now that the MD PDU has been queued, state is S2
+        # We are going to be sending file data PDUs from now on
+        self.state = self.S2
+        # Retrieve the source file for Copy File procedures
+        ait.core.log.info("Sender {0}: Attempting to open file {1}"
+                          .format(self.transaction.entity_id, self.metadata.source_path))
+        try:
+            self.file = open(self.transaction.full_file_path, 'rb')
+        except IOError:
+            ait.core.log.error('Sender {0} -- could not open file {1} from outgoing path {2}'
+                               .format(self.transaction.entity_id, self.metadata.source_path, outgoing_directory))
+            return self.fault_handler(ConditionCode.FILESTORE_REJECTION)
+
+        # Check file structure
+        ait.core.log.info("Sender {0}: Checking file structure".format(self.transaction.entity_id))
+        if not check_file_structure(self.file, self.metadata.segmentation_control):
+            return self.fault_handler(ConditionCode.INVALID_FILE_STRUCTURE)
+
+        # Compute and save checksum of outgoing file to send with EOF at the end
+        self.transaction.filedata_checksum = calc_checksum(self.transaction.full_file_path)
+        ait.core.log.info('Sender {0}: Checksum of file {1}: {2}'.format(self.transaction.entity_id,
+                                                                         self.metadata.source_path,
+                                                                         self.transaction.filedata_checksum))
+
+    def handle_file_transfer(self, outgoing_directory):
+        '''Handles state transition from after receiving the MD PDU for copy file procedures'''
+
+        # Copy File Procedures if the Put.request is a file transfer
+        # For now it always is because Messages to User/TLV have not been implemented
+        if self.metadata.file_transfer:
+            self.enter_s2_state(outgoing_directory)
+        else:
+            self.is_eof_outgoing = True
+            self.transaction.condition_code = ConditionCode.NO_ERROR
+            self.make_eof_pdu(self.transaction.condition_code)
+
+    def handle_put_request(self, request):
+        ait.core.log.info("Sender {0}: Received PUT REQUEST".format(self.transaction.entity_id))
+        self.put_request_received = True
+        self.transaction.other_entity_id = request.info.get('destination_id')
+
+        # Store the actual file path
+        # Files should be located in path specified in ait.config
+        outgoing_directory = self.kernel._data_paths['outgoing']
+        full_source_path = os.path.join(outgoing_directory, request.info.get('source_path'))
+        self.transaction.full_file_path = full_source_path
+
+        # (A) Transaction Start Indication Procedure
+        # Issue Transaction Indication
+        self.indication_handler(IndicationType.TRANSACTION_INDICATION, transaction_id=self.transaction.transaction_id)
+
+        # Seed PDU header. `self.header` is to be reused in subsequent PDUs for this transaction
+        self.make_header_from_request(request)
+        # Make MD PDU from request and queue it up for sending
+        self.make_metadata_pdu_from_request(request)
+        self.is_md_outgoing = True
+        self.handle_file_transfer(outgoing_directory)
+
     def update_state(self, event=None, pdu=None, request=None):
         """
         Prompt for machine to evaluate a state. Could possibly or possibly not receive an event, pdu, or request to factor into state
@@ -134,60 +205,11 @@ class Sender1(Machine):
         if self.state == self.S1:
 
             # Only event in S1 with defined action is receiving a put request
-            if event == Event.RECEIVED_PUT_REQUEST:
+            if event == Event.E30_RECEIVED_PUT_REQUEST:
                 ait.core.log.info("Sender {0}: Received PUT REQUEST".format(self.transaction.entity_id))
-                self.put_request_received = True
-                self.transaction.other_entity_id = request.info.get('destination_id')
+                self.handle_put_request(request)
 
-                # Store the actual file path
-                # Files should be located in path specified in ait.config
-                outgoing_directory = self.kernel._data_paths['outgoing']
-                full_source_path = os.path.join(outgoing_directory, request.info.get('source_path'))
-                self.transaction.full_file_path = full_source_path
-
-                # (A) Transaction Start Indication Procedure
-                # Issue Transaction Indication
-                self.indication_handler(IndicationType.TRANSACTION_INDICATION, transaction_id=self.transaction.transaction_id)
-
-                # Seed PDU header. `self.header` is to be reused in subsequent PDUs for this transaction
-                self.make_header_from_request(request)
-                # Make MD PDU from request and queue it up for sending
-                self.make_metadata_pdu_from_request(request)
-                self.is_md_outgoing = True
-
-                # Now that the MD PDU has been queued, state is S2
-                # We are going to be sending file data PDUs from now on
-                self.state = self.S2
-
-                # Copy File Procedures if the Put.request is a file transfer
-                # For now it always is because Messages to User/TLV have not been implemented
-                if self.metadata.file_transfer:
-                    # Retrieve the source file for Copy File procedures
-                    ait.core.log.info("Sender {0}: Attempting to open file {1}"
-                                 .format(self.transaction.entity_id, self.metadata.source_path))
-                    try:
-                        self.file = open(self.transaction.full_file_path, 'rb')
-                    except IOError:
-                        ait.core.log.error('Sender {0} -- could not open file {1} from outgoing path {2}'
-                                      .format(self.transaction.entity_id, self.metadata.source_path, outgoing_directory))
-                        return self.fault_handler(ConditionCode.FILESTORE_REJECTION)
-
-                    # Check file structure
-                    ait.core.log.info("Sender {0}: Checking file structure".format(self.transaction.entity_id))
-                    if not check_file_structure(self.file, self.metadata.segmentation_control):
-                        return self.fault_handler(ConditionCode.INVALID_FILE_STRUCTURE)
-
-                    # Compute and save checksum of outgoing file to send with EOF at the end
-                    self.transaction.filedata_checksum = calc_checksum(self.transaction.full_file_path)
-                    ait.core.log.info('Sender {0}: Checksum of file {1}: {2}'.format(self.transaction.entity_id,
-                                                                                self.metadata.source_path,
-                                                                                self.transaction.filedata_checksum))
-                else:
-                    self.is_oef_outgoing = True
-                    self.transaction.condition_code = ConditionCode.NO_ERROR
-                    self.make_eof_pdu(self.transaction.condition_code)
-
-            elif event == Event.SEND_FILE_DIRECTIVE:
+            elif event == Event.E0_SEND_FILE_DIRECTIVE:
                 ait.core.log.debug("Sender {0}: Received SEND FILE DIRECTIVE".format(self.transaction.entity_id))
                 if self.transaction.frozen or self.transaction.suspended:
                     return
@@ -197,10 +219,10 @@ class Sender1(Machine):
                     self.kernel.send(self.metadata)
                     self.is_md_outgoing = False
 
-                elif self.is_oef_outgoing is True:
+                elif self.is_eof_outgoing is True:
                     ait.core.log.info("EOF TYPE: " + str(self.eof.header.pdu_type))
                     self.kernel.send(self.eof)
-                    self.is_oef_outgoing = False
+                    self.is_eof_outgoing = False
                     self.eof_sent = True
                     self.machine_finished = True
 
@@ -219,50 +241,54 @@ class Sender1(Machine):
             # This is the path for ongoing file transfer
 
             # USER-ISSUED REQUESTS
-            if event == Event.RECEIVED_REPORT_REQUEST:
+            if event == Event.E34_RECEIVED_REPORT_REQUEST:
                 ait.core.log.info("Sender {0}: Received REPORT REQUEST".format(self.transaction.entity_id))
                 # TODO logic to get report
                 self.indication_handler(IndicationType.REPORT_INDICATION,
                                         status_report=None)
 
-            elif event == Event.RECEIVED_FREEZE_REQUEST:
+            elif event == Event.E40_RECEIVED_FREEZE_REQUEST:
                 ait.core.log.info("Sender {0}: Received FREEZE REQUEST".format(self.transaction.entity_id))
-                self.transaction.frozen = True
+                if not self.transaction.frozen:
+                    self.transaction.frozen = True
+                    if self.transaction.suspended is False:
+                        # TODO trigger e5 (suspend timers)
+                        pass
 
-            elif event == Event.RECEIVED_CANCEL_REQUEST:
+            elif event == Event.E33_RECEIVED_CANCEL_REQUEST:
                 ait.core.log.info("Sender {0}: Received CANCEL REQUEST".format(self.transaction.entity_id))
                 self.transaction.condition_code = ConditionCode.CANCEL_REQUEST_RECEIVED
-                self.update_state(Event.NOTICE_OF_CANCELLATION) # Trigger notice of cancellation
+                self.update_state(Event.E3_NOTICE_OF_CANCELLATION) # Trigger notice of cancellation
 
-            elif event == Event.RECEIVED_SUSPEND_REQUEST:
+            elif event == Event.E31_RECEIVED_SUSPEND_REQUEST:
                 ait.core.log.info("Sender {0}: Received SUSPEND REQUEST".format(self.transaction.entity_id))
-                self.update_state(Event.NOTICE_OF_SUSPENSION) # Trigger notice of suspension
+                self.update_state(Event.E4_NOTICE_OF_SUSPENSION) # Trigger notice of suspension
 
-            elif event == Event.RECEIVED_RESUME_REQUEST:
+            elif event == Event.E32_RECEIVED_RESUME_REQUEST:
                 ait.core.log.info("Sender {0}: Received RESUME REQUEST".format(self.transaction.entity_id))
                 if self.transaction.suspended is True:
                     self.transaction.suspended = False
                     self.indication_handler(IndicationType.RESUMED_INDICATION) # TODO progress param?
 
-            elif event == Event.RECEIVED_THAW_REQUEST:
+            elif event == Event.E41_RECEIVED_THAW_REQUEST:
                 ait.core.log.info("Sender {0}: Received THAW REQUEST".format(self.transaction.entity_id))
                 self.transaction.frozen = False
 
             # OTHER EVENTS
-            elif event == Event.ABANDON_TRANSACTION:
+            elif event == Event.E2_ABANDON_TRANSACTION:
                 ait.core.log.info("Sender {0}: Received ABANDON event".format(self.transaction.entity_id))
                 self.abandon()
 
-            elif event == Event.NOTICE_OF_CANCELLATION:
+            elif event == Event.E3_NOTICE_OF_CANCELLATION:
                 ait.core.log.info("Sender {0}: Received NOTICE OF CANCELLATION".format(self.transaction.entity_id))
                 # Set eof to outgoing to send a Cancel EOF
                 self.notify_partner_of_cancel()
 
-            elif event == Event.NOTICE_OF_SUSPENSION:
+            elif event == Event.E4_NOTICE_OF_SUSPENSION:
                 ait.core.log.info("Sender {0}: Received NOTICE OF SUSPENSION".format(self.transaction.entity_id))
                 self.suspend()
 
-            elif event == Event.SEND_FILE_DIRECTIVE:
+            elif event == Event.E0_SEND_FILE_DIRECTIVE:
                 if self.transaction.frozen or self.transaction.suspended:
                     return
 
@@ -272,11 +298,11 @@ class Sender1(Machine):
                     self.kernel.send(self.metadata)
                     self.is_md_outgoing = False
 
-                elif self.is_oef_outgoing is True:
+                elif self.is_eof_outgoing is True:
                     self.make_eof_pdu(self.transaction.condition_code)
                     ait.core.log.info("EOF TYPE: " + str(self.eof.header.pdu_type))
                     self.kernel.send(self.eof)
-                    self.is_oef_outgoing = False
+                    self.is_eof_outgoing = False
                     self.eof_sent = True
                     self.machine_finished = True
                     self.state = self.S1
@@ -287,7 +313,7 @@ class Sender1(Machine):
                     self.finish_transaction()
                     self.shutdown()
 
-            elif event == Event.SEND_FILE_DATA:
+            elif event == Event.E1_SEND_FILE_DATA:
                 if self.transaction.frozen or self.transaction.suspended:
                     return
 
@@ -295,7 +321,7 @@ class Sender1(Machine):
 
                 if self.file is None or (not self.file.closed and self.file.tell() == self.metadata.file_size):
                     # Check if entire file is done being sent. If yes, queue up EOF
-                    self.is_oef_outgoing = True
+                    self.is_eof_outgoing = True
                     self.transaction.condition_code = ConditionCode.NO_ERROR
                     self.make_eof_pdu(self.transaction.condition_code)
 

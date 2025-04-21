@@ -15,11 +15,6 @@
 from enum import Enum
 
 
-class MachineState(Enum):
-    SEND_METADATA = "SEND_METADATA"
-    SEND_FILEDATA = "SEND_FILEDATA"
-
-
 class TransmissionMode(Enum):
     ACK = "ACK"
     NO_ACK = "NO_ACK"
@@ -114,3 +109,29 @@ class TimerType(Enum):
     ACK_TIMER = "ACK_TIMER"
     NAK_TIMER = "NAK_TIMER"
     INACTIVITY_TIMER = "INACTIVITY_TIMER"
+
+
+class TransactionStatus(Enum):
+    UNDEFINED = 0b00
+    ACTIVE = 0b01
+    TERMINATED = 0b10
+    UNRECOGNIZED = 0b11
+
+
+class DirectiveCode(Enum):
+    """Directive code field for ACK, NAK, etc. 00-03 & 0D-FF are reserved"""
+    EOF_PDU = 0x04
+    FINISHED_PDU = 0x05
+    ACK_PDU = 0x06
+    METADATA_PDU = 0x07
+    NAK_PDU = 0x08
+    PROMPT_PDU = 0x09
+    KEEP_ALIVE_PDU = 0x0C
+
+
+class FinishedPduFileStatus(Enum):
+    """File Status used in FINISHED pdu"""
+    FILE_DISCARDED_DELIBERATELY = 0b00
+    FILE_DISCARDED_FILESTORE_REJECTION = 0b01
+    FILE_RETAINED_SUCCESSFUL = 0b10
+    FILE_STATUS_UNREPORTED = 0b11
