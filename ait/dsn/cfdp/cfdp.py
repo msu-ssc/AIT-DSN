@@ -12,10 +12,13 @@
 # or other export authority as may be required before exporting such
 # information to foreign countries or providing access to foreign persons.
 
+from __future__ import annotations
+
 import os
 import socket
 import time
 import traceback
+from typing import TYPE_CHECKING
 # import SimpleHTTPServer
 # import SocketServer
 
@@ -35,6 +38,11 @@ from .exceptions import InvalidTransaction
 import ait.core
 import ait.core.log
 
+if TYPE_CHECKING:
+    from ait.dsn.cfdp.pdu.pdu import PDU
+    from ait.dsn.cfdp.mib import MIB
+    from ait.dsn.cfdp.machines.machine import Machine
+    from ait.dsn.cfdp.machines import Sender1, Sender2, Receiver1, Receiver2
 
 class CFDP(object):
     """CFDP processor class. Handles sending and receiving of PDUs and management of transactions.
@@ -57,7 +65,7 @@ class CFDP(object):
 
         # State machines for current transactions (basically just transactions).
         # Can be Class 1 or 2 sender or receiver
-        self._machines = {}
+        self._machines: dict[int, Machine] = {}
 
         # set sending and receiving handlers depending on transfer method
         if kwargs.get('file_sys', None):
@@ -273,7 +281,7 @@ def read_pdus_from_filesys(instance):
                         instance.incoming_pdu_queue.put(pdu_file_bytes)
                     break
         except Exception as e:
-            ait.core.log.warn("EXCEPTION: " + e.message)
+            ait.core.log.warn("EXCEPTION: " + str(e))
             ait.core.log.warn(traceback.format_exc())
 
 
@@ -398,7 +406,7 @@ def receiving_handler(instance):
         except gevent.queue.Empty:
             pass
         except Exception as e:
-            ait.core.log.warn("EXCEPTION: " + e.message)
+            ait.core.log.warn("EXCEPTION: " + str(e))
             ait.core.log.warn(traceback.format_exc())
         gevent.sleep(0.2)
 
@@ -442,7 +450,7 @@ def write_outgoing_pdu(pdu, pdu_filename=None, output_directory=None):
     write_to_file(pdu_file_path, bytearray(pdu_bytes))
 
 
-def send_to_socket_handler(instance):
+def send_to_socket_handler(instance: CFDP):
     """ Handler to take PDUs from the outgoing queue and send over socket. """
     while True:
         gevent.sleep(0)
@@ -451,11 +459,11 @@ def send_to_socket_handler(instance):
             instance.pdu_counter += 1
             ait.core.log.debug('Got PDU from outgoing queue: ' + str(pdu))
             instance._sender_socket.sendto(bytearray(pdu.to_bytes()), instance.send_host)
-            ait.core.log.debug('PDU transmitted: ' + str(pdu))
+            ait.core.log.info('PDU transmitted: ' + str(pdu))
         except gevent.queue.Empty:
             pass
         except Exception as e:
-            ait.core.log.warn('Sending handler exception: ' + e.message)
+            ait.core.log.warn('Sending handler exception: ' + str(e))
             ait.core.log.warn(traceback.format_exc())
         gevent.sleep(0.2)
 
@@ -476,12 +484,12 @@ def send_to_filesys_handler(instance):
         except gevent.queue.Empty:
             pass
         except Exception as e:
-            ait.core.log.warn('Sending handler exception: ' + e.message)
+            ait.core.log.warn('Sending handler exception: ' + str(e))
             ait.core.log.warn(traceback.format_exc())
         gevent.sleep(0.2)
 
 
-def transaction_handler(instance):
+def transaction_handler(instance: CFDP):
     """Handler to cycle through existing transactions and check timers or prompt sending of PDUs
     """
     while True:
@@ -511,6 +519,6 @@ def transaction_handler(instance):
                 if machine.role == Role.CLASS_1_SENDER or machine.role == Role.CLASS_2_SENDER:
                     machine.update_state(Event.E1_SEND_FILE_DATA)
         except Exception as e:
-            ait.core.log.warn("EXCEPTION: " + e.message)
+            ait.core.log.warn("EXCEPTION: " + str(e))
             ait.core.log.warn(traceback.format_exc())
         gevent.sleep(0.2)

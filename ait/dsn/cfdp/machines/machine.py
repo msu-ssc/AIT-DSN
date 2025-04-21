@@ -12,12 +12,18 @@
 # or other export authority as may be required before exporting such
 # information to foreign countries or providing access to foreign persons.
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import gevent.queue
 from ait.dsn.cfdp.primitives import Role, FinalStatus, IndicationType, HandlerCode, ConditionCode
 from ait.dsn.cfdp.events import Event
 
 import ait.core.log
 
+if TYPE_CHECKING:
+    from ait.dsn.cfdp import CFDP
 
 class ID(object):
     """
@@ -89,7 +95,7 @@ class Machine(object):
     S1 = "S1"
     S2 = "S2"
 
-    def __init__(self, cfdp, transaction_id, *args, **kwargs):
+    def __init__(self, cfdp: CFDP, transaction_id, *args, **kwargs):
         self.kernel = cfdp
         self.transaction = Transaction(cfdp.mib.local_entity_id, transaction_id)
         self.state = self.S1

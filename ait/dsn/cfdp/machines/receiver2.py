@@ -207,7 +207,7 @@ class Receiver2(Receiver1):
         self.ack_list.put(ack)
 
     def make_finished_pdu(self, condition_code, delivery_code, file_status):
-        header = copy.copy(self.header)
+        header: Header = copy.copy(self.header)
         header.pdu_type = Header.FILE_DIRECTIVE_PDU
         header.pdu_data_field_length = 2 # finished pdu is 2 octets long
         finished = Finished(condition_code=condition_code,
@@ -490,7 +490,7 @@ class Receiver2(Receiver1):
                 # Seek offset to write in file if provided
                 if pdu.segment_offset is not None:
                     self.temp_file.seek(pdu.segment_offset)
-                
+
                 self.temp_file.write(bytearray(pdu.data, encoding="utf-8"))
                 # Issue file segment received
                 if self.kernel.mib.issue_file_segment_recv:
