@@ -245,8 +245,11 @@ class Header(object):
         #   PDU Data Field Length (16)
         byte_2 = pdu_hdr[1]
         byte_3 = pdu_hdr[2]
-        # left shift first byte 4 to get right position of bits
-        pdu_data_length = byte_2 << 4
+
+
+        # BUGFIX: See https://github.com/msu-ssc/AIT-DSN/issues/1
+        # Parse byte_2 and byte_3 as a UINT16
+        pdu_data_length = byte_2 << 8
         pdu_data_length += byte_3
 
         # --- BYTE 4 ---
