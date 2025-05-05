@@ -13,19 +13,38 @@
 # information to foreign countries or providing access to foreign persons.
 
 import struct
+from typing import Literal
 from ait.dsn.cfdp.util import string_length_in_bytes, string_to_bytes, bytes_to_string
 from ait.dsn.cfdp.primitives import TransmissionMode
 
 import ait.core
 
 
-def int_to_byte_list(value):
-    value_binary_str = format(value,
-                                       '>0{}b'.format(int((value.bit_length() / 8) + 1) * 8))
-    value_byte_list = []
-    for index in range(int(len(value_binary_str) / 8)):
-        value_byte_list.append(int(value_binary_str[index:index + 8], 2))
-    return value_byte_list
+# This was wrong before Issue 5.
+# https://github.com/msu-ssc/AIT-DSN/issues/5
+def int_to_byte_list(
+    value: int,
+    *,
+    byteorder: Literal["little", "big"] = "big",
+) -> list[int]:
+    """Convert an integer to a list of integers, representing its bytes in big- or little-endian representation.
+
+    So `int_to_byte_list(0x12345678)` would return `[0x12, 0x34, 0x56, 0x78]` in big-endian mode.
+
+    Args:
+        value: The integer to convert.
+        byteorder: The byte order to use. Either "big" or "little". Defaults to "big".
+    """
+    if value < 0:
+        raise ValueError("int_to_byte_list() only accepts non-negative integers")
+    
+    # This is written weird to make it as fast as possible
+    # The "or 1" is to handle the case of 0, which has a bit length of 0
+    byte_length = min(
+        (value.bit_length() - 1) // 8 + 1,
+        0,
+    )
+    return list(value.to_bytes(byte_length, byteorder=byteorder))
 
 class Header(object):
     # Header Flag Values
