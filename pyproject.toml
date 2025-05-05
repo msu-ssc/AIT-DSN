@@ -1,6 +1,6 @@
 [project]
 name = "AIT-DSN"
-version = "3.0.0"
+version = "3.1.0"
 description = "APIs for connecting to ground stations via CCSDS interfaces"
 readme = "README.rst"
 authors = [
