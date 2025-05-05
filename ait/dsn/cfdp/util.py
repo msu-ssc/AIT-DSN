@@ -14,6 +14,7 @@
 
 import binascii
 import os
+import struct
 
 
 def string_length_in_bytes(s):
@@ -84,14 +85,14 @@ def check_file_structure(target_file, segmentation_control):
     return True
 
 
-def checksum_of_word(word_list):
+def checksum_of_word(word_list: list[int]):
     """Returns of the value of a 4-byte word to be added to the running checksum.
 
     Arguments:
         word_list:
             list of integers with max length 4 (more will be ignored), each integer representing a byte
     """
-    if len(word_list) < 4:
+    while len(word_list) < 4:
         word_list.append(0)
     word = word_list[0] << 24
     word += word_list[1] << 16
@@ -100,8 +101,18 @@ def checksum_of_word(word_list):
     return word
 
 
-def calc_checksum(filename):
+def _calc_checksum_legacy(filename):
     """Calculates the checksum of a file according to the CFDP Blue Book.
+
+    NOTE: This function (calc_checksum_legacy) is the way `calc_checksum` was implemented before version 3.1.0.
+    
+    `calc_checksum_buffered` is the new implementation that gives the same result as `calc_checksum` but is faster.
+
+    This function is kept only because we have a test that verifies that `calc_checksum_legacy` and `calc_checksum_buffered`
+    give the same result. This function is not used anywhere else in the code and should not be used for any other purpose.
+
+    See issue #3
+    https://github.com/msu-ssc/AIT-DSN/issues/3
 
     Arguments:
         filename:
@@ -133,3 +144,49 @@ def calc_checksum(filename):
         return checksum & 0xFFFFFFFF
     except IOError:
         return None
+
+
+def _calc_checksum_struct(
+    path: str,
+    *,
+    buffer_size=1024*1024,
+):
+    assert buffer_size % 4 == 0, f"Buffer size must be a multiple of 4. Got {buffer_size}."
+    checksum = 0
+    with open(path, 'rb') as f:
+        while True:
+            buffer = f.read(buffer_size)
+            if not buffer:
+                break
+                
+            # Process full 4-byte chunks
+            full_chunks = len(buffer) // 4
+            for index in range(0, full_chunks*4, 4):
+                value, = struct.unpack('>I', buffer[index : index + 4])
+                checksum = (checksum + value) & 0xFFFFFFFF
+                
+            # Handle remaining bytes (0-3)
+            # Pad to the right with 0s to make it a full 4-byte word
+            remaining = buffer[full_chunks*4:]
+            if remaining:
+                padded = remaining + b'\x00' * (4 - len(remaining))
+                value, = struct.unpack('>I', padded)
+                checksum = (checksum + value) & 0xFFFFFFFF
+                
+    return checksum
+
+def calc_checksum(
+    path: str,
+    *,
+    buffer_size: int = 1024*1024,
+):
+    """Calculates the checksum of a file according to the CFDP Blue Book.
+
+    NOTE: The implementation of this function changed in version 3.1.0, but the returned value should not have. See issue #3
+    https://github.com/msu-ssc/AIT-DSN/issues/3
+
+    Arguments:
+        filename:
+            Full path of the file
+    """
+    return _calc_checksum_struct(path, buffer_size=buffer_size)

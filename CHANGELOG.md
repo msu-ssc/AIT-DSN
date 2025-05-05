@@ -13,6 +13,14 @@ This is the first MSU SSC release after forking from [upstream]((https://github.
 
 - Switched backend from Poetry to UV.
 
+## [3.1.0] - 2025-05-05
+
+### Fixed
+
+- Issue #3 - Overhaul CFDP checksum calculation [`#3`](https://github.com/msu-ssc/AIT-DSN/issues/3)
+
+
+
 ## [2.0.1-rc1](https://github.com/NASA-AMMOS/AIT-DSN/compare/2.0.0...2.0.1-rc1) - 2022-04-13
 
 ### Merged
