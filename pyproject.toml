@@ -20,6 +20,11 @@ dependencies = [
 [tool.uv.sources]
 ait-core = { git = "https://github.com/NASA-AMMOS/AIT-Core" }
 
+[dependency-groups]
+dev = [
+    "pytest>=8.3.5",
+]
+
 # [build-system]
 # requires = ["poetry-core>=1.0.0"]
 # build-backend = "poetry.core.masonry.api"

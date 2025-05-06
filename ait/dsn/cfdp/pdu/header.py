@@ -39,10 +39,10 @@ def int_to_byte_list(
         raise ValueError("int_to_byte_list() only accepts non-negative integers")
     
     # This is written weird to make it as fast as possible
-    # The "or 1" is to handle the case of 0, which has a bit length of 0
-    byte_length = min(
+    # The max is to handle the case of 0, which has a bit length of 0
+    byte_length = max(
         (value.bit_length() - 1) // 8 + 1,
-        0,
+        1,
     )
     return list(value.to_bytes(byte_length, byteorder=byteorder))
 
